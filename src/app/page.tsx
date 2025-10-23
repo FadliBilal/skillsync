@@ -12,52 +12,63 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import ReactMarkdown from "react-markdown"; // <-- 1. IMPORT REACT-MARKDOWN
 
 export default function Home() {
-  // --- STATE MANAGEMENT ---
-  // State untuk menyimpan nilai input
   const [jobTitle, setJobTitle] = useState("");
-  // State untuk loading spinner
   const [isLoading, setIsLoading] = useState(false);
-  // State untuk menyimpan hasil dari AI
   const [result, setResult] = useState("");
-  // State untuk error handling
   const [error, setError] = useState("");
 
-  // --- FORM SUBMISSION HANDLER ---
+  // --- INI ADALAH FUNGSI 'handleSubmit' YANG BARU ---
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    // 1. Mencegah halaman refresh (default behavior <form>)
     e.preventDefault();
-
-    // 2. Reset state sebelum request baru
     setIsLoading(true);
     setResult("");
     setError("");
 
-    // 3. Validasi input sederhana
     if (!jobTitle.trim()) {
       setError("Nama jabatan tidak boleh kosong.");
-      setIsLoading(false); // Stop loading
-      return; // Hentikan eksekusi
+      setIsLoading(false);
+      return;
     }
 
-    // --- INI ADALAH SIMULASI API CALL (FASE 5) ---
-    // Kita pakai delay 2 detik untuk pura-pura memanggil AI
-    console.log("Simulating AI call for:", jobTitle);
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // --- 2. LOGIC BARU: API CALL SEBENARNYA (BUKAN SIMULASI) ---
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        // Kirim 'jobTitle' dari state kita ke backend
+        body: JSON.stringify({ jobTitle }),
+      });
 
-    // 4. Setelah "sukses", set hasil dummy dan matikan loading
-    setResult(
-      `Ini adalah roadmap dummy yang berhasil digenerate untuk: "${jobTitle}". \n\nKita akan mengganti ini dengan data AI asli di Fase 5.`
-    );
-    setIsLoading(false);
-    setJobTitle(""); // Kosongkan input field
-    // ----------------------------------------------
+      // Best Practice: Cek jika response-nya tidak OK (misal: error 500)
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(
+          errorData.error || "Gagal menghubungi server. Coba lagi."
+        );
+      }
+
+      // Jika sukses, ambil data JSON
+      const data = await response.json();
+
+      // 3. Set state 'result' dengan data 'roadmap' asli dari AI
+      setResult(data.roadmap);
+      setJobTitle(""); // Kosongkan input
+    } catch (err: any) {
+      // 4. Tangani semua error (network, atau error yg kita 'throw' di atas)
+      setError(err.message || "Terjadi kesalahan yang tidak diketahui.");
+    } finally {
+      // 5. Best Practice: SELALU matikan loading, baik sukses maupun gagal
+      setIsLoading(false);
+    }
+    // -----------------------------------------------------
   };
 
-  // --- JSX (VIEW) ---
   return (
-    // Kita bungkus dengan flex-col agar hasil bisa muncul di bawah card
     <div className="container flex flex-col items-center justify-start p-4 md:p-8 pt-16">
       <Card className="w-full max-w-lg">
         <CardHeader>
@@ -68,21 +79,16 @@ export default function Home() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* 5. Hubungkan <form> dengan handler handleSubmit 
-          */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <Input
               type="text"
               placeholder="Contoh: 'Fullstack Web Developer'"
               className="py-6"
-              // 6. Hubungkan Input dengan state 'jobTitle' (Controlled Component)
               value={jobTitle}
               onChange={(e) => setJobTitle(e.target.value)}
-              disabled={isLoading} // 7. Matikan input saat loading
+              disabled={isLoading}
             />
             <Button size="lg" disabled={isLoading}>
-              {/* 8. Tampilkan spinner dan teks berbeda saat isLoading 
-              */}
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -94,27 +100,27 @@ export default function Home() {
             </Button>
           </form>
 
-          {/* 9. Tampilkan pesan error jika ada */}
           {error && (
             <p className="text-destructive text-sm mt-4 text-center">{error}</p>
           )}
         </CardContent>
       </Card>
 
-      {/* 10. Tampilkan Card hasil di luar Card form, hanya jika 'result' ada 
-      */}
+      {/* --- 6. RENDER HASIL DENGAN REACT-MARKDOWN --- */}
       {result && (
         <Card className="w-full max-w-lg mt-8">
           <CardHeader>
             <CardTitle>Roadmap Kamu Telah Siap!</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* Kita pakai <pre> agar format teks (new lines) terlihat
-              Nantinya ini akan kita ganti dengan react-markdown 
+            {/* Ganti <pre> dengan <ReactMarkdown>
+                Kita tambahkan sedikit styling 'prose' agar rapi.
+                'prose' adalah class dari Tailwind.
+                'max-w-none' memastikan ia mengisi lebar Card.
             */}
-            <pre className="whitespace-pre-wrap font-sans text-sm">
-              {result}
-            </pre>
+            <article className="prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown>{result}</ReactMarkdown>
+            </article>
           </CardContent>
         </Card>
       )}
